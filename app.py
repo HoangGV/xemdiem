@@ -1,156 +1,162 @@
 import random
+import re
 import requests
 import streamlit as st
 
-# 1. Cấu hình trang web
+# Cấu hình giao diện tối (Dark Mode)
 st.set_page_config(
-    page_title="Tra cứu kết quả học tập",
+    page_title="Tra cứu điểm SV",
     page_icon="🎓",
     layout="centered",
     initial_sidebar_state="collapsed",
 )
 
-# 2. Danh sách User-Agent để fake ngẫu nhiên mỗi lần submit
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0",
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1",
 ]
 
-# 3. CSS tùy biến nhẹ nhàng, responsive và định dạng bảng điểm HTML
-CUSTOM_CSS = """
+# CSS Dark Mode dịu mắt
+DARK_THEME_CSS = """
 <style>
+    /* Nền ứng dụng & font chữ */
     .stApp {
-        background-color: #f8fafc;
+        background-color: #0f172a !important;
+        color: #e2e8f0 !important;
     }
-    .main-card {
-        background: #ffffff;
-        padding: 24px;
-        border-radius: 12px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-        margin-bottom: 20px;
-    }
+    
+    /* Khung kết quả tra cứu */
     .result-container {
-        margin-top: 15px;
-        padding: 16px;
-        background: #ffffff;
-        border-radius: 8px;
-        border: 1px solid #e2e8f0;
+        margin-top: 20px;
+        padding: 20px;
+        background-color: #1e293b;
+        border-radius: 10px;
+        border: 1px solid #334155;
+        color: #f8fafc;
         overflow-x: auto;
     }
+    
+    /* Bảng điểm trên nền tối */
     table {
         width: 100% !important;
         border-collapse: collapse !important;
-        margin-top: 10px;
+        margin-top: 12px;
         font-size: 14px;
+        color: #f1f5f9 !important;
     }
     th, td {
-        border: 1px solid #cbd5e1 !important;
-        padding: 8px 12px !important;
+        border: 1px solid #334155 !important;
+        padding: 10px 12px !important;
         text-align: left;
     }
     th {
-        background-color: #f1f5f9 !important;
+        background-color: #334155 !important;
+        color: #38bdf8 !important;
         font-weight: 600;
-        color: #334155;
     }
     tr:nth-child(even) {
-        background-color: #f8fafc;
+        background-color: #1e293b;
+    }
+    tr:nth-child(odd) {
+        background-color: #0f172a;
     }
     tr:hover {
-        background-color: #f1f5f9;
+        background-color: #475569 !important;
+    }
+    
+    /* Link trong text trả về */
+    a {
+        color: #38bdf8 !important;
+        text-decoration: underline;
     }
 </style>
 """
-st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
+st.markdown(DARK_THEME_CSS, unsafe_allow_html=True)
 
 
 def fetch_student_data(masv: str, password: str):
-    """Thực hiện đăng nhập duy trì session và gọi API lấy điểm"""
     session = requests.Session()
-
-    # Fake header trình duyệt ngẫu nhiên
+    
+    # Dùng cố định 1 User-Agent duy nhất cho toàn bộ phiên này
+    chosen_ua = random.choice(USER_AGENTS)
     headers = {
-        "User-Agent": random.choice(USER_AGENTS),
+        "User-Agent": chosen_ua,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "Accept-Language": "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7",
         "Origin": "https://htql.dhsphue.edu.vn",
         "Referer": "https://htql.dhsphue.edu.vn/htql/login.php",
     }
     session.headers.update(headers)
 
-    # Bước 1: Gửi form đăng nhập lấy Cookie
     login_url = "https://htql.dhsphue.edu.vn/htql/login.php"
-    form_data = {"username": masv, "password": password, "login": ""}
-    login_resp = session.post(
-        login_url, data=form_data, timeout=300, allow_redirects=True
-    )
+    api_url = "https://htql.dhsphue.edu.vn/htql/MESSENGER/api2json.php"
+
+    # Bước 1: GET trang login trước để khởi tạo PHPSESSID hợp lệ
+    session.get(login_url, timeout=300)
+
+    # Bước 2: POST thông tin đăng nhập
+    form_data = {
+        "username": masv,
+        "password": password,
+        "login": ""
+    }
+    login_resp = session.post(login_url, data=form_data, timeout=300, allow_redirects=True)
     login_resp.raise_for_status()
 
-    # Bước 2: Gọi API lấy kết quả học tập
-    api_url = "https://htql.dhsphue.edu.vn/htql/MESSENGER/api2json.php"
+    # Bước 3: Gửi payload sang API tra cứu điểm
+    api_headers = {
+        "Content-Type": "application/json",
+        "X-Requested-With": "XMLHttpRequest",
+        "Referer": "https://htql.dhsphue.edu.vn/htql/home.php"
+    }
     payload = {
         "message": "xem kết quả học tập",
         "previousMessage": "xem thông tin sinh viên",
-        "messageHistory": {"action": "", "masv": masv},
+        "messageHistory": {
+            "action": "",
+            "masv": masv
+        }
     }
-    session.headers.update({"Content-Type": "application/json"})
-    api_resp = session.post(api_url, json=payload, timeout=300)
+    
+    api_resp = session.post(api_url, json=payload, headers=api_headers, timeout=300)
     api_resp.raise_for_status()
 
     return api_resp.json()
 
 
-# ================= GIAO DIỆN CHÍNH =================
+# ================= GIAO DIỆN =================
 st.title("🎓 Tra cứu kết quả học tập")
-st.caption("Cổng tra cứu kết quả sinh viên ĐH Sư Phạm - Huế")
+st.caption("Hệ thống ĐH Sư Phạm - Đại học Huế")
 
 with st.form("form_tra_cuu"):
-    masv = st.text_input("Mã sinh viên:", placeholder="Ví dụ: 25S1060062").strip()
-    password = st.text_input(
-        "Mật khẩu:", type="password", placeholder="Nhập mật khẩu"
-    )
-    submit_btn = st.form_submit_button(
-        "Đăng nhập & Xem kết quả", use_container_width=True
-    )
+    masv = st.text_input("Mã sinh viên:", placeholder="Nhập mã sinh viên (VD: 25S1060062)").strip()
+    password = st.text_input("Mật khẩu:", type="password", placeholder="Nhập mật khẩu")
+    submit_btn = st.form_submit_button("Đăng nhập & Tra cứu", use_container_width=True)
 
 if submit_btn:
     if not masv or not password:
         st.warning("⚠️ Vui lòng nhập đầy đủ Mã sinh viên và Mật khẩu.")
     else:
-        with st.spinner("⏳ Đang kết nối máy chủ và lấy dữ liệu, vui lòng chờ..."):
+        with st.spinner("⏳ Đang kết nối máy chủ và lấy dữ liệu..."):
             try:
                 data = fetch_student_data(masv, password)
-
-                # Trích xuất nội dung HTML trong trường "text"
+                
                 html_content = ""
                 if isinstance(data, dict):
                     html_content = data.get("response", {}).get("text", "")
 
-                if html_content:
-                    st.success("✅ Lấy dữ liệu thành công!")
-                    st.markdown(
-                        f'<div class="result-container">{html_content}</div>',
-                        unsafe_allow_html=True,
-                    )
+                if "Bạn cần đăng nhập" in html_content:
+                    st.error("❌ Đăng nhập không thành công! Vui lòng kiểm tra lại Mã SV và Mật khẩu.")
+                elif html_content:
+                    st.success("✅ Lấy kết quả thành công!")
+                    st.markdown(f'<div class="result-container">{html_content}</div>', unsafe_allow_html=True)
                 else:
-                    st.error(
-                        "❌ Không tìm thấy bảng dữ liệu. Vui lòng kiểm tra lại Mã sinh viên hoặc Mật khẩu!"
-                    )
+                    st.error("❌ Không nhận được dữ liệu phản hồi từ máy chủ trường.")
 
             except requests.exceptions.Timeout:
-                st.error(
-                    "⏱️ Quá thời gian chờ (Timeout sau 5 phút). Máy chủ trường phản hồi chậm, vui lòng thử lại!"
-                )
+                st.error("⏱️ Quá thời gian chờ (Timeout). Vui lòng thử lại!")
             except requests.exceptions.ConnectionError:
-                st.error(
-                    "🌐 Không thể kết nối tới máy chủ trường (Lỗi mạng hoặc server trường không phản hồi). Vui lòng bấm thử lại!"
-                )
-            except requests.exceptions.HTTPError as http_err:
-                st.error(f"⚠️ Máy chủ trả về mã lỗi HTTP: {http_err}. Vui lòng thử lại!")
-            except requests.exceptions.JSONDecodeError:
-                st.error(
-                    "⚠️ Dữ liệu trả về không đúng định dạng JSON. Vui lòng thử lại!"
-                )
+                st.error("🌐 Lỗi kết nối đến máy chủ. Vui lòng bấm thử lại!")
             except Exception as e:
-                st.error(f"❌ Đã xảy ra lỗi không xác định: {e}. Vui lòng thử lại!")
+                st.error(f"❌ Lỗi: {e}. Vui lòng thử lại!")
