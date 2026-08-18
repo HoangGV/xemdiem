@@ -79,7 +79,7 @@ def fetch_student_data(masv: str, password: str):
     # 2. Đăng nhập
     form_data = {"username": masv, "password": password, "login": ""}
     login_resp = session.post(
-        login_url, data=form_data, timeout=300, allow_redirects=True
+        login_url, data=form_data, timeout=686, allow_redirects=True
     )
     login_resp.raise_for_status()
 
@@ -91,12 +91,12 @@ def fetch_student_data(masv: str, password: str):
     }
     payload = {
         "message": "xem kết quả học tập",
-        "previousMessage": "xem thông tin sinh viên",
+        "previousMessage": "",
         "messageHistory": {"action": "", "masv": masv},
     }
 
     api_resp = session.post(
-        api_url, json=payload, headers=api_headers, timeout=300
+        api_url, json=payload, headers=api_headers, timeout=686
     )
     api_resp.raise_for_status()
 
