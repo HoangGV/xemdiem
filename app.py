@@ -116,7 +116,7 @@ def fetch_student_data(masv: str, password: str):
 
 # ================= GIAO DIỆN =================
 st.title("🔥 Tra cứu KQHT HUEdu")
-st.caption("Dùng khi web chính lag!!")
+st.caption("Dùng khi thông tin đăng nhập của web cũ")
 
 with st.form("form_tra_cuu"):
     masv = st.text_input(
