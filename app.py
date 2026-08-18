@@ -115,7 +115,7 @@ with st.form("form_tra_cuu"):
         "Mật khẩu:", type="password", placeholder="Nhập mật khẩu"
     )
     submit_btn = st.form_submit_button(
-        "Đăng nhập & Tra cứu", use_container_width=True
+        "Tra cứu", use_container_width=True
     )
 
 if submit_btn:
