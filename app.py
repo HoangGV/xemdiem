@@ -5,11 +5,22 @@ import streamlit as st
 
 # Cấu hình giao diện tối (Dark Mode)
 st.set_page_config(
-    page_title="Tra cứu điểm SV",
-    page_icon="🎓",
+    page_title="Tra cứu điểm thi HUEdu",
+    page_icon="💯",
     layout="centered",
     initial_sidebar_state="collapsed",
 )
+
+st.markdown(
+    """
+    <meta name="author" content="Hoàng GV">
+    <meta property="og:title" content="Tra cứu điểm thi HUEdu">
+    <meta name="description" content="Tra cứu điểm thi Sư phạm Huế, xem điểm thi DHS">
+    <meta property="og:description" content="Tra cứu KQHT HUEdu - HoangGV">
+    <meta property="og:type" content="website">
+    """,
+    unsafe_allow_html=True
+
 
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -104,7 +115,7 @@ def fetch_student_data(masv: str, password: str):
 
 
 # ================= GIAO DIỆN =================
-st.title("🎓 Tra cứu KQHT HUEdu")
+st.title("🌟 Tra cứu KQHT HUEdu")
 st.caption("Dùng khi web chính lag!!")
 
 with st.form("form_tra_cuu"):
